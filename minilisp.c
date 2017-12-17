@@ -1196,16 +1196,18 @@ static Obj *prim_num_eq(void *root, Obj **env, Obj **list) {
 
 // (/= <integer> <integer>) +_+
 static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {
-	if (length(*list) != 2)
-		error("Malformed /=");
-
-	Obj *values = eval_list(root, env, list);
-	Obj *x = values->car;
-	Obj *y = values->cdr->car;
-	if (x->type != TINT || y->type != TINT)
-		error("/= only takes numbers");
-
-	return x->value != y->value ? True : Nil;
+	Obj *args = eval_list(root, env, list);
+	Obj *comp = args->car;
+	Obj *ret = True;
+	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
+	    if (comp->value != p->car->value)
+		continue;
+	    else{
+		ret = Nil;
+		break;
+	    }
+	}
+   	return ret;
 }
 
 // (eq expr expr) +_+
@@ -1340,7 +1342,6 @@ static void define_primitives(void *root, Obj **env) {
     add_primitive(root, env, "gensym", prim_gensym);
     add_primitive(root, env, "+", prim_plus);
     add_primitive(root, env, "-", prim_minus);
-    add_primitive(root, env, "<", prim_lt);
     add_primitive(root, env, "define", prim_define);
     add_primitive(root, env, "defun", prim_defun);
     add_primitive(root, env, "defmacro", prim_defmacro);
@@ -1350,7 +1351,8 @@ static void define_primitives(void *root, Obj **env) {
     add_primitive(root, env, "=", prim_num_eq);
     add_primitive(root, env, "println", prim_println);
 
-    //+_+
+    // +_+b
+    add_primitive(root, env, "<", prim_lt);
     add_primitive(root, env, "*", prim_multi);
     add_primitive(root, env, ">", prim_rt);
     add_primitive(root, env, "<=", prim_let);
