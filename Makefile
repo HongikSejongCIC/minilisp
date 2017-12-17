@@ -1,4 +1,4 @@
-CFLAGS=-std=gnu99 -g -O2 -Wall
+CFLAGS=-std=gnu99 -g -O2 -Wall -lm
 
 .PHONY: clean test
 
@@ -9,3 +9,4 @@ clean:
 
 test: minilisp
 	@./test.sh
+

@@ -1,5 +1,5 @@
 // This software is in the public domain.
-
+#include <math.h> // +_+
 #include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+
 
 static __attribute((noreturn)) void error(char *fmt, ...) {
     va_list ap;
@@ -24,10 +25,12 @@ static __attribute((noreturn)) void error(char *fmt, ...) {
 // Lisp objects
 //======================================================================
 
-// The Lisp object type
+// 27 // The Lisp object type
 enum {
     // Regular objects visible from the user
     TINT = 1,
+    TFLOAT, // +_+
+    TSTRING, // +_+
     TCELL,
     TSYMBOL,
     TPRIMITIVE,
@@ -63,6 +66,13 @@ typedef struct Obj {
     union {
         // Int
         int value;
+
+	//float +_+
+	float f_value;
+	
+  	//string +_+
+	char *string;
+
         // Cell
         struct {
             struct Obj *car;
@@ -288,9 +298,12 @@ static void gc(void *root) {
     // Copy the objects referenced by the GC root objects located between scan1 and scan2. Once it's
     // finished, all live objects (i.e. objects reachable from the root) will have been copied to
     // the to-space.
+  // 291 //
     while (scan1 < scan2) {
         switch (scan1->type) {
         case TINT:
+        case TFLOAT: //+_+
+	case TSTRING: //+_+
         case TSYMBOL:
         case TPRIMITIVE:
             // Any of the above types does not contain a pointer to a GC-managed object.
@@ -331,6 +344,78 @@ static void gc(void *root) {
 static Obj *make_int(void *root, int value) {
     Obj *r = alloc(root, TINT, sizeof(int));
     r->value = value;
+    return r;
+}
+
+//+_+
+static Obj *make_float(void *root, float f_value) {   //
+    Obj *r = alloc(root, TFLOAT, sizeof(float));   //
+    r->f_value = f_value;               //
+    return r;                  //
+}  
+
+//Division operation only +_+
+static Obj *make_division(void *root, int numerator, int denominator){
+    //Calculate the greatest common divisor
+    int big, small;
+    if(numerator < 0)
+	numerator = -numerator;
+    if(denominator < 0)
+	denominator = -denominator;
+
+    if(numerator>denominator){
+	big = numerator;
+	small = denominator;
+    }
+    else{
+    	big = denominator;
+	small = numerator;	
+    }
+
+    while(small != 0){ 
+    	int temp = big % small;
+	big = small;
+	small = temp;
+    }
+
+    //big: The greatest common divisor
+    numerator /= big;
+    denominator /= big;
+
+    //Digit calculation
+    int lengthInt(int number){ 
+	int count = 0;
+	int length = number;
+	while (length != 0){
+	    length /= 10;
+	    count++;
+        }
+
+        return count;
+    }
+    
+    //Change from integer to string
+    char *charNumerator;    
+    charNumerator = (char *)malloc(sizeof(lengthInt(numerator)));
+
+    char *charDenominator;
+    charDenominator = (char *)malloc(sizeof(lengthInt(denominator)));
+    
+    sprintf(charNumerator, "%d", numerator);
+    sprintf(charDenominator, "%d", denominator);
+
+    //Convert to lisp output format
+    char *divRet;
+    divRet = (char *)malloc(sizeof(charNumerator)+sizeof(charDenominator)+1);
+    strcat(divRet,charNumerator);
+    strcat(divRet,"/");
+    strcat(divRet,charDenominator);
+
+    //Return result
+    Obj *r = alloc(root, TSTRING, strlen(divRet) + 1);
+    r->string = (char *)malloc(sizeof(divRet));
+    strcpy(r->string, divRet);
+
     return r;
 }
 
@@ -536,13 +621,15 @@ static void print(Obj *obj) {
         printf(__VA_ARGS__);                    \
         return
     CASE(TINT, "%d", obj->value);
+    CASE(TFLOAT, "%f", obj->f_value); // +_+
+    CASE(TSTRING, "%s", obj->string); // +_+
     CASE(TSYMBOL, "%s", obj->name);
     CASE(TPRIMITIVE, "<primitive>");
     CASE(TFUNCTION, "<function>");
     CASE(TMACRO, "<macro>");
     CASE(TMOVED, "<moved>");
     CASE(TTRUE, "t");
-    CASE(TNIL, "()");
+    CASE(TNIL, "Nil");
 #undef CASE
     default:
         error("Bug: print: Unknown tag type: %d", obj->type);
@@ -660,10 +747,12 @@ static Obj *macroexpand(void *root, Obj **env, Obj **obj) {
     return apply_func(root, env, macro, args);
 }
 
-// Evaluates the S expression.
+// 663 // Evaluates the S expression.
 static Obj *eval(void *root, Obj **env, Obj **obj) {
     switch ((*obj)->type) {
     case TINT:
+    case TFLOAT: //+_+
+    case TSTRING: //+_+
     case TPRIMITIVE:
     case TFUNCTION:
     case TTRUE:
@@ -715,6 +804,33 @@ static Obj *prim_cons(void *root, Obj **env, Obj **list) {
     return cell;
 }
 
+// (list expr ...) +_+
+static Obj *prim_list(void *root, Obj **env, Obj **list) {
+    Obj *cell = eval_list(root, env, list);;
+  
+    return cell;
+}
+
+
+
+// (append expr expr ...)
+static Obj *prim_append(void *root, Obj **env, Obj **list) {
+    Obj *cell = eval_list(root, env, list);
+
+    DEFINE4(head, lp, expr, result);
+    *head = Nil;
+ 
+    for(Obj *p = cell; p != Nil; p = p->cdr) {
+        for(*lp = p->car; *lp != Nil; *lp=(*lp)->cdr) {
+	    *expr = (*lp)->car;
+ 	    *result = eval(root, env, expr);
+	    *head = cons(root,result, head);	    
+		//printf("%d\n", temp->car->value);
+            }
+        }
+    return reverse(*head);
+}
+
 // (car <cell>)
 static Obj *prim_car(void *root, Obj **env, Obj **list) {
     Obj *args = eval_list(root, env, list);
@@ -729,6 +845,26 @@ static Obj *prim_cdr(void *root, Obj **env, Obj **list) {
     if (args->car->type != TCELL || args->cdr != Nil)
         error("Malformed cdr");
     return args->car->cdr;
+}
+
+// (cadr <cell>) +_+
+// Extract the second value from the list
+static Obj *prim_cadr(void *root, Obj **env, Obj **list) {
+    Obj *args = eval_list(root, env, list);
+    if (args->car->type != TCELL || args->cdr != Nil || args->car->cdr == Nil )
+        error("Malformed cadr");
+
+    return args->car->cdr->car;
+}
+
+// (caddr <cell>) +_+
+// Extract the third value from the list
+static Obj *prim_caddr(void *root, Obj **env, Obj **list) {
+    Obj *args = eval_list(root, env, list);
+    if (args->car->type != TCELL || args->cdr != Nil || args->car->cdr->cdr == Nil)
+        error("Malformed caddr");
+
+    return args->car->cdr->cdr->car;
 }
 
 // (setq <symbol> expr)
@@ -787,30 +923,156 @@ static Obj *prim_plus(void *root, Obj **env, Obj **list) {
     return make_int(root, sum);
 }
 
+// (* <integer> ...) +_+
+static Obj *prim_multi(void *root, Obj **env, Obj **list) {
+    int mul = 1;
+    for (Obj *args = eval_list(root, env, list); args != Nil; args = args->cdr) {
+	if (args->car->type != TINT)
+	    error("+ takes only numbers");
+	mul *= args->car->value;
+    }
+    return make_int(root, mul);
+}
+
 // (- <integer> ...)
 static Obj *prim_minus(void *root, Obj **env, Obj **list) {
     Obj *args = eval_list(root, env, list);
     for (Obj *p = args; p != Nil; p = p->cdr)
         if (p->car->type != TINT)
             error("- takes only numbers");
+
     if (args->cdr == Nil)
         return make_int(root, -args->car->value);
+
     int r = args->car->value;
     for (Obj *p = args->cdr; p != Nil; p = p->cdr)
         r -= p->car->value;
+
     return make_int(root, r);
+}
+
+// (/ <integer> ...) +_+
+static Obj *prim_division(void *root, Obj **env, Obj **list) { 
+    
+    Obj *args = eval_list(root, env, list);
+
+    for (Obj *p = args; p != Nil; p = p->cdr)
+        if (p->car->type != TINT)
+            error("- takes only numbers");
+
+    for (Obj *p = args->cdr; p != Nil; p = p->cdr){
+	if(p->car->value == 0)
+	    error("division by zero");
+    }
+
+    if (args->car->value == 0) // first number = 0
+	return make_int(root, 0);    
+
+    if (args->cdr == Nil) // exist only first
+        return make_division(root, 1, args->car->value);
+    
+    int r = 1; 
+    for (Obj *p = args->cdr; p != Nil; p = p->cdr) //division
+        r *= p->car->value;
+    
+    if( args->car->value % r == 0)
+	return make_int(root, args->car->value / r);
+    else
+        return make_division(root, args->car->value, r);
+}
+
+// (mod <integer> <integer>) +_+
+// Remaining operation
+static Obj *prim_mod(void *root, Obj **env, Obj **list) {
+	Obj *args = eval_list(root, env, list);
+	if (length(args) != 2)
+		error("malformed mod");
+	Obj *x = args->car;
+	Obj *y = args->cdr->car;
+	if (x->type != TINT || y->type != TINT)
+		error("< takes only numbers");
+	
+	return make_int(root,x->value % y->value);
 }
 
 // (< <integer> <integer>)
 static Obj *prim_lt(void *root, Obj **env, Obj **list) {
+	Obj *args = eval_list(root, env, list);
+	if (length(args) != 2)
+		error("malformed <");
+	Obj *x = args->car;
+	Obj *y = args->cdr->car;
+	if (x->type != TINT || y->type != TINT)
+		error("< takes only numbers");
+	return x->value < y->value ? True : Nil;
+}
+
+// (> <integer> <integer>) +_+
+static Obj *prim_rt(void *root, Obj **env, Obj **list) {	
+	Obj *args = eval_list(root, env, list);
+	if (length(args) != 2)
+		error("malformed <");
+	Obj *x = args->car;
+	Obj *y = args->cdr->car;
+	if (x->type != TINT || y->type != TINT)
+		error("< takes only numbers");
+	return x->value > y->value ? True : Nil;
+}
+
+// (<= <integer> <integer>) +_+
+static Obj *prim_let(void *root, Obj **env, Obj **list) {	/**/
+	Obj *args = eval_list(root, env, list);
+	if (length(args) != 2)
+		error("malformed <");
+	Obj *x = args->car;
+	Obj *y = args->cdr->car;
+	if (x->type != TINT || y->type != TINT)
+		error("< takes only numbers");
+	return x->value <= y->value ? True : Nil;
+}
+
+// (>= <integer> <integer>) +_+
+static Obj *prim_ret(void *root, Obj **env, Obj **list) {	/**/
+	Obj *args = eval_list(root, env, list);
+	if (length(args) != 2)
+		error("malformed <");
+	Obj *x = args->car;
+	Obj *y = args->cdr->car;
+	if (x->type != TINT || y->type != TINT)
+		error("< takes only numbers");
+	return x->value >= y->value ? True : Nil;
+}
+
+// (sqrt <integer>) +_+
+static Obj *prim_sqrt(void *root, Obj **env, Obj **list) {
     Obj *args = eval_list(root, env, list);
-    if (length(args) != 2)
-        error("malformed <");
-    Obj *x = args->car;
-    Obj *y = args->cdr->car;
-    if (x->type != TINT || y->type != TINT)
-        error("< takes only numbers");
-    return x->value < y->value ? True : Nil;
+    for (Obj *p = args; p != Nil; p = p->cdr)
+        if (p->car->type != TINT)
+            error("- takes only numbers");
+
+    if (args->cdr != Nil)
+        error("- too many arguments given to sqrt");
+
+    float s;
+    s = sqrt(args->car->value);
+
+    return make_float(root,s);
+}
+
+// (log <integer> (<integer>) ...) +_+
+static Obj *prim_log(void *root, Obj **env, Obj **list) {
+    Obj *args = eval_list(root, env, list); 
+    for (Obj *p = args; p != Nil; p = p->cdr)
+	if (p->car->type != TINT)
+            error("- takes only numbers");
+
+    float x;
+    if(args->cdr == Nil)
+	x = log(args->car->value);
+    else
+	x = log(args->car->value)/log(args->cdr->car->value);
+     
+     return make_float(root, x);
 }
 
 static Obj *handle_function(void *root, Obj **env, Obj **list, int type) {
@@ -899,24 +1161,88 @@ static Obj *prim_if(void *root, Obj **env, Obj **list) {
     return *els == Nil ? Nil : progn(root, env, els);
 }
 
-// (= <integer> <integer>)
+// (= <integer> <integer>) 
 static Obj *prim_num_eq(void *root, Obj **env, Obj **list) {
-    if (length(*list) != 2)
-        error("Malformed =");
-    Obj *values = eval_list(root, env, list);
-    Obj *x = values->car;
-    Obj *y = values->cdr->car;
-    if (x->type != TINT || y->type != TINT)
-        error("= only takes numbers");
-    return x->value == y->value ? True : Nil;
+	if (length(*list) != 2)
+		error("Malformed =");
+	Obj *values = eval_list(root, env, list);
+	Obj *x = values->car;
+	Obj *y = values->cdr->car;
+	if (x->type != TINT || y->type != TINT)
+		error("= only takes numbers");
+	return x->value == y->value ? True : Nil;
 }
 
-// (eq expr expr)
+// (/= <integer> <integer>) +_+
+static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {	/**/
+	if (length(*list) != 2)
+		error("Malformed =");
+	Obj *values = eval_list(root, env, list);
+	Obj *x = values->car;
+	Obj *y = values->cdr->car;
+	if (x->type != TINT || y->type != TINT)
+		error("= only takes numbers");
+	return x->value != y->value ? True : Nil;
+}
+
+// (eq expr expr) +_+
 static Obj *prim_eq(void *root, Obj **env, Obj **list) {
-    if (length(*list) != 2)
-        error("Malformed eq");
-    Obj *values = eval_list(root, env, list);
-    return values->car == values->cdr->car ? True : Nil;
+	if (length(*list) != 2)
+		error("Malformed eq");
+	Obj *values = eval_list(root, env, list);
+	return values->car == values->cdr->car ? True : Nil;
+}
+
+// (max <integer> <interger>) +_+
+static Obj *prim_max(void *root, Obj **env, Obj **list) {	/**/
+	Obj *max = Nil;
+	for (Obj *args = eval_list(root, env, list); args != Nil; args = args->cdr) {
+		if (args->car->type != TINT)
+            error("+ takes only numbers");		
+		
+		Obj *X = args->car;
+		if(max == Nil){
+			max = X;
+		}
+		
+		if(max->value < X->value)
+			max->value = X->value;
+	}
+	return max;
+}
+
+// (min <integer> <interger>) +_+
+static Obj *prim_min(void *root, Obj **env, Obj **list) {	/**/
+	Obj *min = Nil;
+	for (Obj *args = eval_list(root, env, list); args != Nil; args = args->cdr) {
+		if (args->car->type != TINT)
+            error("+ takes only numbers");		
+		
+		Obj *X = args->car;
+		if(min == Nil){
+			min = X;
+		}
+		
+		if(min->value > X->value)
+			min->value = X->value;
+	}
+	return min;
+}
+
+// (abs <integer>) +_+
+static Obj *prim_abs(void *root, Obj **env, Obj **list) {   /**/
+   if (length(*list) != 1)
+      error("malformed abs");
+
+   Obj *values = eval_list(root, env, list);
+   Obj *x = values->car;
+
+   if ( x->type != TINT )
+      error("= only takes numbers");
+   else if ( x->value < 0 )
+      x->value = -(x->value);
+
+   return make_int(root,x->value);
 }
 
 static void add_primitive(void *root, Obj **env, char *name, Primitive *fn) {
@@ -930,6 +1256,67 @@ static void define_constants(void *root, Obj **env) {
     DEFINE1(sym);
     *sym = intern(root, "t");
     add_variable(root, env, sym, &True);
+}
+
+// (or expr ...) +_+
+// Run until true(first index) or Nil output
+static Obj *prim_or(void *root, Obj **env, Obj **list){
+	Obj *args = eval_list(root, env, list);
+	Obj *r = Nil;
+	for (Obj *p = args; p != Nil; p = p->cdr){
+	    r = p;
+	    if (p->car->type == TNIL)
+		continue;
+	    else
+		break;
+	}
+
+   	return r->car;
+}
+
+// (and expr ...) +_+
+// Run until Nil or true(last index) output
+static Obj *prim_and(void *root, Obj **env, Obj **list){
+	Obj *args = eval_list(root, env, list);
+	Obj *r = True;
+	for (Obj *p = args; p != Nil; p = p->cdr){
+	    r = p;
+	    if (p->car->type != TNIL)
+		continue;
+	    else
+		break;
+	}
+   	return r->car;
+}
+
+// (not expr) +_+
+// Run until Nil or true(last index) output
+static Obj *prim_not(void *root, Obj **env, Obj **list){
+	Obj *args = eval_list(root, env, list);
+
+	if (length(args) != 1)
+            error("malformed length");
+
+	if (args->car->type != TNIL)
+	    args->car->type = TNIL;
+	else
+	    args->car->type = TTRUE;
+
+	return args->car;
+}
+
+// (length expr) +_+
+static Obj *prim_length(void *root, Obj **env, Obj **list) {
+    Obj *args = eval_list(root, env, list);
+
+    if (length(args) != 1)
+        error("malformed length");
+
+    int count = 0;
+    for (Obj *p = args->car; p != Nil; p = p->cdr)
+        count++;
+
+    return make_int(root,count);
 }
 
 static void define_primitives(void *root, Obj **env) {
@@ -951,8 +1338,30 @@ static void define_primitives(void *root, Obj **env) {
     add_primitive(root, env, "lambda", prim_lambda);
     add_primitive(root, env, "if", prim_if);
     add_primitive(root, env, "=", prim_num_eq);
-    add_primitive(root, env, "eq", prim_eq);
     add_primitive(root, env, "println", prim_println);
+
+    //+_+
+    add_primitive(root, env, "*", prim_multi);
+    add_primitive(root, env, ">", prim_rt);
+    add_primitive(root, env, "<=", prim_let);
+    add_primitive(root, env, ">=", prim_ret);
+    add_primitive(root, env, "/=", prim_num_neq);
+    add_primitive(root, env, "eq", prim_eq);
+    add_primitive(root, env, "max", prim_max);
+    add_primitive(root, env, "min", prim_min);
+    add_primitive(root, env, "abs", prim_abs);
+    add_primitive(root, env, "log", prim_log);
+    add_primitive(root, env, "/", prim_division);
+    add_primitive(root, env, "sqrt", prim_sqrt);
+    add_primitive(root, env, "cadr", prim_cadr);
+    add_primitive(root, env, "caddr", prim_caddr);
+    add_primitive(root, env, "mod", prim_mod);
+    add_primitive(root, env, "or", prim_or);
+    add_primitive(root, env, "and", prim_and);
+    add_primitive(root, env, "length", prim_length);
+    add_primitive(root, env, "list", prim_list);
+    add_primitive(root, env, "append", prim_append);
+    add_primitive(root, env, "not", prim_not);
 }
 
 //======================================================================
@@ -994,3 +1403,4 @@ int main(int argc, char **argv) {
         printf("\n");
     }
 }
+
