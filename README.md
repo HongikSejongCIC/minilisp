@@ -1,6 +1,15 @@
 MiniLisp
 ========
 
+========
+
+Hongik University
+OPENSOURCE PROJECT
+B189053 Lee DongHee
+B289025 Kim TeaGwan
+
+========
+
 One day I wanted to see what I can do with 1k lines of C and
 decided to write a Lisp interpreter. That turned to be a
 fun weekend project, and the outcome is a mini lisp implementation
