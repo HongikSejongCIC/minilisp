@@ -997,68 +997,106 @@ static Obj *prim_mod(void *root, Obj **env, Obj **list) {
 	return make_int(root,x->value % y->value);
 }
 
-// (< <integer> <integer> ... ) +_+
+// (< <integer> ... ) +_+
 static Obj *prim_lt(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
-	Obj *comp = args->car;
-	Obj *ret = True;
-	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
-	    if (comp->value < p->car->value)
+	for (Obj *p = args; p->cdr != Nil; p = p->cdr){
+	    if (p->car->type != TINT || p->cdr->car->type != TINT)
+                error("< takes only numbers");
+
+	    if (p->car->value < p->cdr->car->value){
 		continue;
+	    }
 	    else{
-		ret = Nil;
-		break;
+		return Nil;
 	    }
 	}
-   	return ret;
+   	return True;
 }
 
-// (> <integer> <integer> ... ) +_+
+// (> <integer>  ... ) +_+
 static Obj *prim_rt(void *root, Obj **env, Obj **list) {	
 	Obj *args = eval_list(root, env, list);
-	Obj *comp = args->car;
-	Obj *ret = True;
-	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
-	    if (comp->value > p->car->value)
+	for (Obj *p = args; p->cdr != Nil; p = p->cdr){
+	    if (p->car->type != TINT || p->cdr->car->type != TINT)
+                error("> takes only numbers");
+
+	    if (p->car->value > p->cdr->car->value){
 		continue;
+	    }
 	    else{
-		ret = Nil;
-		break;
+		return Nil;
 	    }
 	}
-   	return ret;
+   	return True;
 }
 
-// (<= <integer> <integer> ... ) +_+
+// (<= <integer>  ... ) +_+
 static Obj *prim_let(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
-	Obj *comp = args->car;
-	Obj *ret = True;
-	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
-	    if (comp->value <= p->car->value)
+	for (Obj *p = args; p->cdr != Nil; p = p->cdr){
+	    if (p->car->type != TINT || p->cdr->car->type != TINT)
+                error("<= takes only numbers");
+
+	    if (p->car->value <= p->cdr->car->value){
 		continue;
+	    }
 	    else{
-		ret = Nil;
-		break;
+		return Nil;
 	    }
 	}
-   	return ret;
+   	return True;
 }
 
-// (>= <integer> <integer>) +_+
+// (>= <integer> ... ) +_+
 static Obj *prim_ret(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
-	Obj *comp = args->car;
-	Obj *ret = True;
-	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
-	    if (comp->value >= p->car->value)
+	for (Obj *p = args; p->cdr != Nil; p = p->cdr){
+	    if (p->car->type != TINT || p->cdr->car->type != TINT)
+                error(">= takes only numbers");
+
+	    if (p->car->value >= p->cdr->car->value){
 		continue;
+	    }
 	    else{
-		ret = Nil;
-		break;
+		return Nil;
 	    }
 	}
-   	return ret;
+   	return True;
+}
+
+// (= <integer> ...) +_+
+static Obj *prim_num_eq(void *root, Obj **env, Obj **list) {
+	Obj *args = eval_list(root, env, list);
+	for (Obj *p = args; p->cdr != Nil; p = p->cdr){
+            if (p->car->type != TINT || p->cdr->car->type != TINT)
+                error("= takes only numbers");
+	
+    	    if (p->car->value == p->cdr->car->value)
+		continue;
+	    else
+	        return Nil;
+	}
+   	return True;
+}
+
+// (/= <integer> ... ) +_+
+static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {
+	Obj *args = eval_list(root, env, list);
+	for (Obj *p = args; p != Nil; p = p->cdr)
+            if (p->car->type != TINT)
+                error("/= takes only numbers");
+	
+	for (Obj *p = args; p != Nil; p = p->cdr){
+	    for (Obj *c = p->cdr; c != Nil; c = c->cdr){
+    	        if (p->car->value != c->car->value)
+		    continue;
+	        else{
+		    return Nil;
+	    	}
+	    }
+	}
+   	return True;
 }
 
 // (sqrt <integer>) +_+
@@ -1182,33 +1220,7 @@ static Obj *prim_if(void *root, Obj **env, Obj **list) {
     return *els == Nil ? Nil : progn(root, env, els);
 }
 
-// (= <integer> <integer>) 
-static Obj *prim_num_eq(void *root, Obj **env, Obj **list) {
-	if (length(*list) != 2)
-		error("Malformed =");
-	Obj *values = eval_list(root, env, list);
-	Obj *x = values->car;
-	Obj *y = values->cdr->car;
-	if (x->type != TINT || y->type != TINT)
-		error("= only takes numbers");
-	return x->value == y->value ? True : Nil;
-}
 
-// (/= <integer> <integer>) +_+
-static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {
-	Obj *args = eval_list(root, env, list);
-	Obj *comp = args->car;
-	Obj *ret = True;
-	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
-	    if (comp->value != p->car->value)
-		continue;
-	    else{
-		ret = Nil;
-		break;
-	    }
-	}
-   	return ret;
-}
 
 // (eq expr expr) +_+
 static Obj *prim_eq(void *root, Obj **env, Obj **list) {
@@ -1220,7 +1232,7 @@ static Obj *prim_eq(void *root, Obj **env, Obj **list) {
 	return values->car == values->cdr->car ? True : Nil;
 }
 
-// (max <integer> <interger> ...) +_+
+// (max <integer> ...) +_+
 static Obj *prim_max(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);	
 	Obj *max = args->car;
@@ -1235,7 +1247,7 @@ static Obj *prim_max(void *root, Obj **env, Obj **list) {
 	return max;
 }
 
-// (min <integer> <interger> ...) +_+
+// (min <integer> ...) +_+
 static Obj *prim_min(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);	
 	Obj *min = args->car;
@@ -1348,10 +1360,10 @@ static void define_primitives(void *root, Obj **env) {
     add_primitive(root, env, "macroexpand", prim_macroexpand);
     add_primitive(root, env, "lambda", prim_lambda);
     add_primitive(root, env, "if", prim_if);
-    add_primitive(root, env, "=", prim_num_eq);
     add_primitive(root, env, "println", prim_println);
 
     // +_+b
+    add_primitive(root, env, "=", prim_num_eq);
     add_primitive(root, env, "<", prim_lt);
     add_primitive(root, env, "*", prim_multi);
     add_primitive(root, env, ">", prim_rt);
