@@ -348,14 +348,14 @@ static Obj *make_int(void *root, int value) {
 }
 
 //+_+
-static Obj *make_float(void *root, float f_value) {   //
-    Obj *r = alloc(root, TFLOAT, sizeof(float));   //
-    r->f_value = f_value;               //
-    return r;                  //
+static Obj *make_float(void *root, float f_value) {
+    Obj *r = alloc(root, TFLOAT, sizeof(float));
+    r->f_value = f_value;
+    return r;
 }  
 
 //Division operation only +_+
-static Obj *make_division(void *root, int numerator, int denominator){
+static Obj *make_fraction(void *root, int numerator, int denominator){
     //Calculate the greatest common divisor
     int big, small;
     if(numerator < 0)
@@ -807,27 +807,27 @@ static Obj *prim_cons(void *root, Obj **env, Obj **list) {
 // (list expr ...) +_+
 static Obj *prim_list(void *root, Obj **env, Obj **list) {
     Obj *cell = eval_list(root, env, list);;
-  
+
     return cell;
 }
 
 
 
-// (append expr expr ...)
+// (append list list ...) +_+
 static Obj *prim_append(void *root, Obj **env, Obj **list) {
     Obj *cell = eval_list(root, env, list);
 
     DEFINE4(head, lp, expr, result);
     *head = Nil;
- 
-    for(Obj *p = cell; p != Nil; p = p->cdr) {
-        for(*lp = p->car; *lp != Nil; *lp=(*lp)->cdr) {
+    for (Obj *p = cell; p != Nil; p = p->cdr) { 
+        for (*lp = p->car; *lp != Nil; *lp=(*lp)->cdr) {
+	    //Extract the elements from multiple lists one by one and recreate the list. 
 	    *expr = (*lp)->car;
  	    *result = eval(root, env, expr);
 	    *head = cons(root,result, head);	    
-		//printf("%d\n", temp->car->value);
-            }
         }
+    }
+
     return reverse(*head);
 }
 
@@ -931,6 +931,7 @@ static Obj *prim_multi(void *root, Obj **env, Obj **list) {
 	    error("+ takes only numbers");
 	mul *= args->car->value;
     }
+
     return make_int(root, mul);
 }
 
@@ -953,32 +954,28 @@ static Obj *prim_minus(void *root, Obj **env, Obj **list) {
 
 // (/ <integer> ...) +_+
 static Obj *prim_division(void *root, Obj **env, Obj **list) { 
-    
     Obj *args = eval_list(root, env, list);
-
     for (Obj *p = args; p != Nil; p = p->cdr)
         if (p->car->type != TINT)
             error("- takes only numbers");
-
-    for (Obj *p = args->cdr; p != Nil; p = p->cdr){
+    for (Obj *p = args->cdr; p != Nil; p = p->cdr)
 	if(p->car->value == 0)
 	    error("division by zero");
-    }
 
     if (args->car->value == 0) // first number = 0
 	return make_int(root, 0);    
 
     if (args->cdr == Nil) // exist only first
-        return make_division(root, 1, args->car->value);
+        return make_fraction(root, 1, args->car->value);
     
     int r = 1; 
     for (Obj *p = args->cdr; p != Nil; p = p->cdr) //division
         r *= p->car->value;
     
-    if( args->car->value % r == 0)
+    if( args->car->value % r == 0) //If the remaining value is 0
 	return make_int(root, args->car->value / r);
     else
-        return make_division(root, args->car->value, r);
+        return make_fraction(root, args->car->value, r);
 }
 
 // (mod <integer> <integer>) +_+
@@ -987,6 +984,7 @@ static Obj *prim_mod(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
 	if (length(args) != 2)
 		error("malformed mod");
+
 	Obj *x = args->car;
 	Obj *y = args->cdr->car;
 	if (x->type != TINT || y->type != TINT)
@@ -1012,10 +1010,12 @@ static Obj *prim_rt(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
 	if (length(args) != 2)
 		error("malformed <");
+
 	Obj *x = args->car;
 	Obj *y = args->cdr->car;
 	if (x->type != TINT || y->type != TINT)
 		error("< takes only numbers");
+
 	return x->value > y->value ? True : Nil;
 }
 
@@ -1024,10 +1024,12 @@ static Obj *prim_let(void *root, Obj **env, Obj **list) {	/**/
 	Obj *args = eval_list(root, env, list);
 	if (length(args) != 2)
 		error("malformed <");
+
 	Obj *x = args->car;
 	Obj *y = args->cdr->car;
 	if (x->type != TINT || y->type != TINT)
 		error("< takes only numbers");
+
 	return x->value <= y->value ? True : Nil;
 }
 
@@ -1036,43 +1038,46 @@ static Obj *prim_ret(void *root, Obj **env, Obj **list) {	/**/
 	Obj *args = eval_list(root, env, list);
 	if (length(args) != 2)
 		error("malformed <");
+
 	Obj *x = args->car;
 	Obj *y = args->cdr->car;
 	if (x->type != TINT || y->type != TINT)
 		error("< takes only numbers");
+
 	return x->value >= y->value ? True : Nil;
 }
 
 // (sqrt <integer>) +_+
 static Obj *prim_sqrt(void *root, Obj **env, Obj **list) {
     Obj *args = eval_list(root, env, list);
+    if (length(args) != 1)
+	error("- too many arguments given to sqrt");
     for (Obj *p = args; p != Nil; p = p->cdr)
         if (p->car->type != TINT)
             error("- takes only numbers");
-
-    if (args->cdr != Nil)
-        error("- too many arguments given to sqrt");
-
+       
     float s;
     s = sqrt(args->car->value);
 
     return make_float(root,s);
 }
 
-// (log <integer> (<integer>) ...) +_+
+// (log <integer> (<integer>) ) +_+
 static Obj *prim_log(void *root, Obj **env, Obj **list) {
     Obj *args = eval_list(root, env, list); 
+    if (length(args) > 2)
+	error("malformed log");
     for (Obj *p = args; p != Nil; p = p->cdr)
 	if (p->car->type != TINT)
             error("- takes only numbers");
 
     float x;
-    if(args->cdr == Nil)
+    if(args->cdr == Nil) //When the argument is one
 	x = log(args->car->value);
-    else
+    else 		 //When the argument is two
 	x = log(args->car->value)/log(args->cdr->car->value);
      
-     return make_float(root, x);
+    return make_float(root, x);
 }
 
 static Obj *handle_function(void *root, Obj **env, Obj **list, int type) {
@@ -1177,11 +1182,13 @@ static Obj *prim_num_eq(void *root, Obj **env, Obj **list) {
 static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {	/**/
 	if (length(*list) != 2)
 		error("Malformed =");
+
 	Obj *values = eval_list(root, env, list);
 	Obj *x = values->car;
 	Obj *y = values->cdr->car;
 	if (x->type != TINT || y->type != TINT)
 		error("= only takes numbers");
+
 	return x->value != y->value ? True : Nil;
 }
 
@@ -1189,43 +1196,39 @@ static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {	/**/
 static Obj *prim_eq(void *root, Obj **env, Obj **list) {
 	if (length(*list) != 2)
 		error("Malformed eq");
+
 	Obj *values = eval_list(root, env, list);
+
 	return values->car == values->cdr->car ? True : Nil;
 }
 
-// (max <integer> <interger>) +_+
-static Obj *prim_max(void *root, Obj **env, Obj **list) {	/**/
-	Obj *max = Nil;
-	for (Obj *args = eval_list(root, env, list); args != Nil; args = args->cdr) {
-		if (args->car->type != TINT)
-            error("+ takes only numbers");		
-		
-		Obj *X = args->car;
-		if(max == Nil){
-			max = X;
-		}
-		
-		if(max->value < X->value)
-			max->value = X->value;
+// (max <integer> <interger> ...) +_+
+static Obj *prim_max(void *root, Obj **env, Obj **list) {
+	Obj *args = eval_list(root, env, list);	
+	Obj *max = args->car;
+	for (Obj *p = args->cdr; p != Nil; p = p->cdr) {
+	    if (args->car->type != TINT)
+                error("+ takes only numbers");		
+	
+	    if(max->value < p->car->value)
+		max = p->car;
 	}
+
 	return max;
 }
 
-// (min <integer> <interger>) +_+
-static Obj *prim_min(void *root, Obj **env, Obj **list) {	/**/
-	Obj *min = Nil;
-	for (Obj *args = eval_list(root, env, list); args != Nil; args = args->cdr) {
-		if (args->car->type != TINT)
-            error("+ takes only numbers");		
-		
-		Obj *X = args->car;
-		if(min == Nil){
-			min = X;
-		}
-		
-		if(min->value > X->value)
-			min->value = X->value;
+// (min <integer> <interger> ...) +_+
+static Obj *prim_min(void *root, Obj **env, Obj **list) {
+	Obj *args = eval_list(root, env, list);	
+	Obj *min = args->car;
+	for (Obj *p = args->cdr; p != Nil; p = p->cdr) {
+	    if (args->car->type != TINT)
+                error("+ takes only numbers");		
+	
+	    if(min->value > p->car->value)
+		min = p->car;
 	}
+
 	return min;
 }
 
@@ -1236,13 +1239,12 @@ static Obj *prim_abs(void *root, Obj **env, Obj **list) {   /**/
 
    Obj *values = eval_list(root, env, list);
    Obj *x = values->car;
-
    if ( x->type != TINT )
       error("= only takes numbers");
    else if ( x->value < 0 )
       x->value = -(x->value);
 
-   return make_int(root,x->value);
+   return x;
 }
 
 static void add_primitive(void *root, Obj **env, char *name, Primitive *fn) {
@@ -1290,25 +1292,17 @@ static Obj *prim_and(void *root, Obj **env, Obj **list){
 }
 
 // (not expr) +_+
-// Run until Nil or true(last index) output
 static Obj *prim_not(void *root, Obj **env, Obj **list){
-	Obj *args = eval_list(root, env, list);
+    Obj *args = eval_list(root, env, list);
+    if (length(args) != 1)
+        error("malformed length");
 
-	if (length(args) != 1)
-            error("malformed length");
-
-	if (args->car->type != TNIL)
-	    args->car->type = TNIL;
-	else
-	    args->car->type = TTRUE;
-
-	return args->car;
+    return args->car->type != TNIL ? Nil : True;
 }
 
 // (length expr) +_+
 static Obj *prim_length(void *root, Obj **env, Obj **list) {
     Obj *args = eval_list(root, env, list);
-
     if (length(args) != 1)
         error("malformed length");
 
