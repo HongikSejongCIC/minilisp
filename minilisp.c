@@ -987,12 +987,12 @@ static Obj *prim_division(void *root, Obj **env, Obj **list) {
 static Obj *prim_mod(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
 	if (length(args) != 2)
-		error("malformed mod");
+	    error("malformed mod");
 
 	Obj *x = args->car;
 	Obj *y = args->cdr->car;
 	if (x->type != TINT || y->type != TINT)
-		error("mod takes only numbers");
+	    error("mod takes only numbers");
 	
 	return make_int(root,x->value % y->value);
 }
@@ -1004,12 +1004,10 @@ static Obj *prim_lt(void *root, Obj **env, Obj **list) {
 	    if (p->car->type != TINT || p->cdr->car->type != TINT)
                 error("< takes only numbers");
 
-	    if (p->car->value < p->cdr->car->value){
+	    if (p->car->value < p->cdr->car->value)
 		continue;
-	    }
-	    else{
+	    else
 		return Nil;
-	    }
 	}
    	return True;
 }
@@ -1021,12 +1019,10 @@ static Obj *prim_rt(void *root, Obj **env, Obj **list) {
 	    if (p->car->type != TINT || p->cdr->car->type != TINT)
                 error("> takes only numbers");
 
-	    if (p->car->value > p->cdr->car->value){
+	    if (p->car->value > p->cdr->car->value)
 		continue;
-	    }
-	    else{
+	    else
 		return Nil;
-	    }
 	}
    	return True;
 }
@@ -1038,12 +1034,10 @@ static Obj *prim_let(void *root, Obj **env, Obj **list) {
 	    if (p->car->type != TINT || p->cdr->car->type != TINT)
                 error("<= takes only numbers");
 
-	    if (p->car->value <= p->cdr->car->value){
+	    if (p->car->value <= p->cdr->car->value)
 		continue;
-	    }
-	    else{
+	    else
 		return Nil;
-	    }
 	}
    	return True;
 }
@@ -1055,12 +1049,10 @@ static Obj *prim_ret(void *root, Obj **env, Obj **list) {
 	    if (p->car->type != TINT || p->cdr->car->type != TINT)
                 error(">= takes only numbers");
 
-	    if (p->car->value >= p->cdr->car->value){
+	    if (p->car->value >= p->cdr->car->value)
 		continue;
-	    }
-	    else{
+	    else
 		return Nil;
-	    }
 	}
    	return True;
 }
@@ -1091,9 +1083,8 @@ static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {
 	    for (Obj *c = p->cdr; c != Nil; c = c->cdr){
     	        if (p->car->value != c->car->value)
 		    continue;
-	        else{
+	        else
 		    return Nil;
-	    	}
 	    }
 	}
    	return True;
