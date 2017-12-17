@@ -851,7 +851,9 @@ static Obj *prim_cdr(void *root, Obj **env, Obj **list) {
 // Extract the second value from the list
 static Obj *prim_cadr(void *root, Obj **env, Obj **list) {
     Obj *args = eval_list(root, env, list);
-    if (args->car->type != TCELL || args->cdr != Nil || args->car->cdr == Nil )
+    if (args->car->cdr == Nil)
+	return Nil;
+    if (args->car->type != TCELL || args->cdr != Nil)
         error("Malformed cadr");
 
     return args->car->cdr->car;
@@ -861,7 +863,9 @@ static Obj *prim_cadr(void *root, Obj **env, Obj **list) {
 // Extract the third value from the list
 static Obj *prim_caddr(void *root, Obj **env, Obj **list) {
     Obj *args = eval_list(root, env, list);
-    if (args->car->type != TCELL || args->cdr != Nil || args->car->cdr->cdr == Nil)
+    if (args->car->cdr->cdr == Nil)
+	return Nil;
+    if (args->car->type != TCELL || args->cdr != Nil)
         error("Malformed caddr");
 
     return args->car->cdr->cdr->car;
@@ -993,58 +997,68 @@ static Obj *prim_mod(void *root, Obj **env, Obj **list) {
 	return make_int(root,x->value % y->value);
 }
 
-// (< <integer> <integer>)
+// (< <integer> <integer> ... ) +_+
 static Obj *prim_lt(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
-	if (length(args) != 2)
-		error("malformed <");
-	Obj *x = args->car;
-	Obj *y = args->cdr->car;
-	if (x->type != TINT || y->type != TINT)
-		error("< takes only numbers");
-	return x->value < y->value ? True : Nil;
+	Obj *comp = args->car;
+	Obj *ret = True;
+	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
+	    if (comp->value < p->car->value)
+		continue;
+	    else{
+		ret = Nil;
+		break;
+	    }
+	}
+   	return ret;
 }
 
-// (> <integer> <integer>) +_+
+// (> <integer> <integer> ... ) +_+
 static Obj *prim_rt(void *root, Obj **env, Obj **list) {	
 	Obj *args = eval_list(root, env, list);
-	if (length(args) != 2)
-		error("malformed >");
-
-	Obj *x = args->car;
-	Obj *y = args->cdr->car;
-	if (x->type != TINT || y->type != TINT)
-		error("> takes only numbers");
-
-	return x->value > y->value ? True : Nil;
+	Obj *comp = args->car;
+	Obj *ret = True;
+	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
+	    if (comp->value > p->car->value)
+		continue;
+	    else{
+		ret = Nil;
+		break;
+	    }
+	}
+   	return ret;
 }
 
-// (<= <integer> <integer>) +_+
-static Obj *prim_let(void *root, Obj **env, Obj **list) {	/**/
+// (<= <integer> <integer> ... ) +_+
+static Obj *prim_let(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
-	if (length(args) != 2)
-		error("malformed <=");
-
-	Obj *x = args->car;
-	Obj *y = args->cdr->car;
-	if (x->type != TINT || y->type != TINT)
-		error("<= takes only numbers");
-
-	return x->value <= y->value ? True : Nil;
+	Obj *comp = args->car;
+	Obj *ret = True;
+	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
+	    if (comp->value <= p->car->value)
+		continue;
+	    else{
+		ret = Nil;
+		break;
+	    }
+	}
+   	return ret;
 }
 
 // (>= <integer> <integer>) +_+
-static Obj *prim_ret(void *root, Obj **env, Obj **list) {	/**/
+static Obj *prim_ret(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
-	if (length(args) != 2)
-		error("malformed >=");
-
-	Obj *x = args->car;
-	Obj *y = args->cdr->car;
-	if (x->type != TINT || y->type != TINT)
-		error(">= takes only numbers");
-
-	return x->value >= y->value ? True : Nil;
+	Obj *comp = args->car;
+	Obj *ret = True;
+	for (Obj *p = args->cdr; p != Nil; p = p->cdr){
+	    if (comp->value >= p->car->value)
+		continue;
+	    else{
+		ret = Nil;
+		break;
+	    }
+	}
+   	return ret;
 }
 
 // (sqrt <integer>) +_+
@@ -1067,6 +1081,8 @@ static Obj *prim_log(void *root, Obj **env, Obj **list) {
     Obj *args = eval_list(root, env, list); 
     if (length(args) > 2)
 	error("malformed log");
+    if (args->car->value == 0)
+        error("division by zero");
     for (Obj *p = args; p != Nil; p = p->cdr)
 	if (p->car->type != TINT)
             error("log takes only numbers");
@@ -1179,7 +1195,7 @@ static Obj *prim_num_eq(void *root, Obj **env, Obj **list) {
 }
 
 // (/= <integer> <integer>) +_+
-static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {	/**/
+static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {
 	if (length(*list) != 2)
 		error("Malformed /=");
 
@@ -1206,8 +1222,8 @@ static Obj *prim_eq(void *root, Obj **env, Obj **list) {
 static Obj *prim_max(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);	
 	Obj *max = args->car;
-	for (Obj *p = args->cdr; p != Nil; p = p->cdr) {
-	    if (args->car->type != TINT)
+	for (Obj *p = args; p != Nil; p = p->cdr) {
+	    if (p->car->type != TINT)
                 error("max takes only numbers");		
 	
 	    if(max->value < p->car->value)
@@ -1221,8 +1237,8 @@ static Obj *prim_max(void *root, Obj **env, Obj **list) {
 static Obj *prim_min(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);	
 	Obj *min = args->car;
-	for (Obj *p = args->cdr; p != Nil; p = p->cdr) {
-	    if (args->car->type != TINT)
+	for (Obj *p = args; p != Nil; p = p->cdr) {
+	    if (p->car->type != TINT)
                 error("min takes only numbers");		
 	
 	    if(min->value > p->car->value)
@@ -1233,7 +1249,7 @@ static Obj *prim_min(void *root, Obj **env, Obj **list) {
 }
 
 // (abs <integer>) +_+
-static Obj *prim_abs(void *root, Obj **env, Obj **list) {   /**/
+static Obj *prim_abs(void *root, Obj **env, Obj **list) {
    if (length(*list) != 1)
       error("malformed abs");
 
