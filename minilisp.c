@@ -965,13 +965,13 @@ static Obj *prim_division(void *root, Obj **env, Obj **list) {
     for (Obj *p = args->cdr; p != Nil; p = p->cdr)
 	if(p->car->value == 0)
 	    error("division by zero");
-
-    if (args->car->value == 0) // first number = 0
-	return make_int(root, 0);    
-
-    if (args->cdr == Nil) // exist only first
-        return make_fraction(root, 1, args->car->value);
     
+    if (args->cdr == Nil){ // exist only first
+	if( args->car->value == 0)
+	    error("division by zero");
+        return make_fraction(root, 1, args->car->value);
+    }
+
     int r = 1; 
     for (Obj *p = args->cdr; p != Nil; p = p->cdr) //division
         r *= p->car->value;
