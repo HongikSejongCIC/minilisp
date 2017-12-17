@@ -1000,6 +1000,8 @@ static Obj *prim_mod(void *root, Obj **env, Obj **list) {
 // (< <integer> ... ) +_+
 static Obj *prim_lt(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
+ 	if (length(args) < 1)
+	    error("/= too many arguments given to sqrt");
 	for (Obj *p = args; p != Nil; p = p->cdr)
             if (p->car->type != TINT)
                 error("< takes only numbers");
@@ -1016,6 +1018,8 @@ static Obj *prim_lt(void *root, Obj **env, Obj **list) {
 // (> <integer>  ... ) +_+
 static Obj *prim_rt(void *root, Obj **env, Obj **list) {	
 	Obj *args = eval_list(root, env, list);
+ 	if (length(args) < 1)
+	    error("/= too many arguments given to sqrt");
 	for (Obj *p = args; p != Nil; p = p->cdr)
             if (p->car->type != TINT)
                 error("> takes only numbers");
@@ -1032,6 +1036,8 @@ static Obj *prim_rt(void *root, Obj **env, Obj **list) {
 // (<= <integer>  ... ) +_+
 static Obj *prim_let(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
+ 	if (length(args) < 1)
+	    error("/= too many arguments given to sqrt");
 	for (Obj *p = args; p != Nil; p = p->cdr)
             if (p->car->type != TINT)
                 error("<= takes only numbers");
@@ -1048,6 +1054,8 @@ static Obj *prim_let(void *root, Obj **env, Obj **list) {
 // (>= <integer> ... ) +_+
 static Obj *prim_ret(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
+ 	if (length(args) < 1)
+	    error("/= too many arguments given to sqrt");
 	for (Obj *p = args; p != Nil; p = p->cdr)
             if (p->car->type != TINT)
                 error(">= takes only numbers");
@@ -1064,6 +1072,8 @@ static Obj *prim_ret(void *root, Obj **env, Obj **list) {
 // (= <integer> ...) +_+
 static Obj *prim_num_eq(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
+ 	if (length(args) < 1)
+	    error("/= too many arguments given to sqrt");
 	for (Obj *p = args; p != Nil; p = p->cdr)
             if (p->car->type != TINT)
                 error("= takes only numbers");
@@ -1080,6 +1090,8 @@ static Obj *prim_num_eq(void *root, Obj **env, Obj **list) {
 // (/= <integer> ... ) +_+
 static Obj *prim_num_neq(void *root, Obj **env, Obj **list) {
 	Obj *args = eval_list(root, env, list);
+ 	if (length(args) < 1)
+	    error("/= too many arguments given to sqrt");
 	for (Obj *p = args; p != Nil; p = p->cdr)
             if (p->car->type != TINT)
                 error("/= takes only numbers");
